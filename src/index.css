@@ -336,3 +336,17 @@ body {
     width: 100% !important;
   }
 }
+
+/* Hide Netlify Injected Badge & Collaborative Drawer */
+#nl-badge-frame,
+.nl-badge-frame,
+iframe#nl-badge-frame,
+iframe[title*="Netlify" i],
+[data-netlify-drawer],
+netlify-drawer {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
