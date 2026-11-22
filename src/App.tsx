@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import kanhaLogo from "./imports/Kanha_Logo.png"
 import ThreeDStudio from "./components/ThreeDStudio"
-import { Scissors, Sparkles, X, ChevronRight, Check } from "lucide-react"
 
 // ─── Images ───────────────────────────────────────────────────────────────────
 const IMG = {
@@ -1332,559 +1331,6 @@ function Pricing() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GRAND OPENING RIBBON CUTTING — Full Website Inauguration Ceremony Overlay
-// ─────────────────────────────────────────────────────────────────────────────
-function GrandOpeningRibbonCutting({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [phase, setPhase] = useState<"idle" | "hover" | "cutting" | "cut" | "celebrating" | "exiting">("idle")
-  const [confetti, setConfetti] = useState<Array<{ id: number; x: number; y: number; color: string; size: number; rot: number; vel: { x: number; y: number } }>>([])
-  const [ribbonPieces, setRibbonPieces] = useState<{ left: boolean; right: boolean }>({ left: false, right: false })
-  const [scissorPos, setScissorPos] = useState(0)
-  const rafRef = useRef<number>(0)
-
-  // Prevent background scrolling while ceremony overlay is active
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
-    return () => {
-      document.body.style.overflow = ""
-    }
-  }, [isOpen])
-
-  // Play realistic ceremonial sound effects via Web Audio API (zero external asset dependencies)
-  const playCeremonialSound = useCallback(() => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-      if (!AudioCtx) return
-      const ctx = new AudioCtx()
-      if (ctx.state === "suspended") ctx.resume()
-
-      // 1. Scissor snip sound (short filtered noise burst)
-      const bufferSize = Math.floor(ctx.sampleRate * 0.09)
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-      const output = buffer.getChannelData(0)
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35))
-      }
-      const whiteNoise = ctx.createBufferSource()
-      whiteNoise.buffer = buffer
-      const filter = ctx.createBiquadFilter()
-      filter.type = "highpass"
-      filter.frequency.setValueAtTime(1400, ctx.currentTime)
-      whiteNoise.connect(filter)
-      filter.connect(ctx.destination)
-      whiteNoise.start()
-
-      // 2. Celebratory Golden Bells Fanfare (Chimes: C5, E5, G5, C6)
-      const notes = [523.25, 659.25, 783.99, 1046.50]
-      notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = "sine"
-        const startTime = ctx.currentTime + 0.08 + idx * 0.12
-        osc.frequency.setValueAtTime(freq, startTime)
-        gain.gain.setValueAtTime(0, startTime)
-        gain.gain.linearRampToValueAtTime(0.18, startTime + 0.03)
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8)
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.start(startTime)
-        osc.stop(startTime + 0.85)
-      })
-    } catch {
-      // AudioContext failure gracefully ignored
-    }
-  }, [])
-
-  const COLORS = ["#D4AF37", "#073B5C", "#00A896", "#FFD700", "#FBE094", "#087F5B", "#FF6B6B", "#FFFFFF", "#4ECDC4"]
-
-  const launchConfetti = () => {
-    const pieces = Array.from({ length: 120 }, (_, i) => ({
-      id: i,
-      x: 35 + Math.random() * 30, // clustered around center
-      y: 45 + Math.random() * 10,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      size: 7 + Math.random() * 12,
-      rot: Math.random() * 360,
-      vel: { x: (Math.random() - 0.5) * 18, y: -(6 + Math.random() * 14) }
-    }))
-    setConfetti(pieces)
-
-    let frame = 0
-    const animate = () => {
-      frame++
-      setConfetti(prev => prev
-        .map(p => ({
-          ...p,
-          x: p.x + p.vel.x * 0.12,
-          y: p.y + p.vel.y * 0.12 + frame * 0.018,
-          rot: p.rot + 4,
-          vel: { ...p.vel, y: p.vel.y + 0.22 }
-        }))
-        .filter(p => p.y < 125)
-      )
-      if (frame < 220) rafRef.current = requestAnimationFrame(animate)
-    }
-    rafRef.current = requestAnimationFrame(animate)
-  }
-
-  const handleCut = () => {
-    if (phase !== "idle" && phase !== "hover") return
-    setPhase("cutting")
-    playCeremonialSound()
-
-    setTimeout(() => {
-      setPhase("cut")
-      setRibbonPieces({ left: true, right: true })
-      launchConfetti()
-      setTimeout(() => setPhase("celebrating"), 250)
-    }, 450)
-  }
-
-  const handleEnterWebsite = () => {
-    setPhase("exiting")
-    setTimeout(() => {
-      onClose()
-      setPhase("idle")
-      setRibbonPieces({ left: false, right: false })
-      setConfetti([])
-    }, 500)
-  }
-
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
-
-  if (!isOpen) return null
-
-  const isDone = phase === "cut" || phase === "celebrating" || phase === "exiting"
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999999,
-        background: "radial-gradient(circle at 50% 40%, #0d2942 0%, #061928 45%, #020910 100%)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "36px 20px 48px",
-        boxSizing: "border-box",
-        overflow: "hidden",
-        opacity: phase === "exiting" ? 0 : 1,
-        transform: phase === "exiting" ? "scale(1.05)" : "scale(1)",
-        transition: "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-      }}
-    >
-      {/* Background ambient lighting */}
-      <div style={{ position: "absolute", top: "15%", left: "50%", transform: "translate(-50%, -50%)", width: "80vw", maxWidth: 900, height: 400, background: "radial-gradient(ellipse, rgba(212,175,55,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: "10%", left: "50%", transform: "translate(-50%, 50%)", width: "90vw", maxWidth: 1000, height: 400, background: "radial-gradient(ellipse, rgba(0,168,150,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-      {/* Confetti particles */}
-      {confetti.map(p => (
-        <div
-          key={p.id}
-          style={{
-            position: "absolute",
-            left: `${p.x}%`,
-            top: `${p.y}%`,
-            width: p.size,
-            height: p.size * 0.45,
-            background: p.color,
-            borderRadius: 2,
-            transform: `rotate(${p.rot}deg)`,
-            opacity: Math.max(0, 1 - (p.y - 45) / 80),
-            pointerEvents: "none",
-            zIndex: 40,
-            transition: "none",
-            boxShadow: `0 0 6px ${p.color}`,
-          }}
-        />
-      ))}
-
-      {/* Top Header Section */}
-      <div style={{ width: "100%", maxWidth: 1100, display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
-        {/* Studio Emblem */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <img src={kanhaLogo} alt="KANHA Ply Studio" style={{ height: 46, width: "auto", filter: "drop-shadow(0 2px 10px rgba(212,175,55,0.4))" }} />
-          <div>
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700, color: "white", letterSpacing: "0.04em", display: "block" }}>
-              KANHA <span style={{ color: "var(--gold)", fontWeight: 400 }}>PLY STUDIO</span>
-            </span>
-            <span style={{ fontFamily: "var(--font-sans)", fontSize: 10, letterSpacing: "0.2em", color: "rgba(255,255,255,0.45)", textTransform: "uppercase" }}>
-              Architectural Interiors & Fine Timber
-            </span>
-          </div>
-        </div>
-
-        {/* Skip Button */}
-        <button
-          onClick={handleEnterWebsite}
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.18)",
-            color: "rgba(255,255,255,0.75)",
-            padding: "8px 16px",
-            borderRadius: 20,
-            fontFamily: "var(--font-sans)",
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            backdropFilter: "blur(6px)",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "white" }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.75)" }}
-        >
-          <span>Skip to Studio</span>
-          <X size={14} />
-        </button>
-      </div>
-
-      {/* Center Ceremony Core */}
-      <div style={{ width: "100%", maxWidth: 960, textAlign: "center", zIndex: 10, position: "relative", margin: "auto 0" }}>
-        {/* Title Badges */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.35)", padding: "6px 16px", borderRadius: 30, marginBottom: 18 }}>
-          <Sparkles size={14} color="#D4AF37" />
-          <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", color: "#D4AF37", textTransform: "uppercase" }}>
-            Official Grand Inauguration
-          </span>
-          <Sparkles size={14} color="#D4AF37" />
-        </div>
-
-        <h1 style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(28px, 5.2vw, 56px)", fontWeight: 700, color: "white", margin: "0 0 14px", lineHeight: 1.15 }}>
-          {isDone ? (
-            <>
-              Welcome to <span style={{ color: "#D4AF37", fontStyle: "italic" }}>KANHA Ply Studio</span>!
-            </>
-          ) : (
-            <>
-              Cut the Ribbon.<br />
-              <span style={{ color: "#D4AF37", fontStyle: "italic" }}>Inaugurate Your Dream Space.</span>
-            </>
-          )}
-        </h1>
-
-        <p style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(13px, 1.8vw, 16px)", color: "rgba(255,255,255,0.65)", maxWidth: 580, margin: "0 auto 36px", lineHeight: 1.6 }}>
-          {isDone
-            ? "The ribbon is cut and our digital flagship doors are now open. Step inside to discover our premium craftsmanship, materials, and 3D studio."
-            : "Click the ceremonial golden scissors to cut the ribbon and officially unveil the entire Kanha Ply Studio experience."}
-        </p>
-
-        {/* The Grand Ribbon Stage */}
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            height: 180,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto",
-          }}
-        >
-          {/* Left Stanchion / Brass Post */}
-          <div
-            style={{
-              position: "absolute",
-              left: "2%",
-              top: "12%",
-              width: 16,
-              height: "76%",
-              background: "linear-gradient(180deg, #FBE094 0%, #D4AF37 35%, #8B6914 100%)",
-              borderRadius: "4px 4px 0 0",
-              boxShadow: "0 4px 20px rgba(212,175,55,0.4)",
-              zIndex: 5,
-            }}
-          >
-            <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", width: 22, height: 16, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #FFF 0%, #D4AF37 60%, #8B6914 100%)" }} />
-          </div>
-
-          {/* Right Stanchion / Brass Post */}
-          <div
-            style={{
-              position: "absolute",
-              right: "2%",
-              top: "12%",
-              width: 16,
-              height: "76%",
-              background: "linear-gradient(180deg, #FBE094 0%, #D4AF37 35%, #8B6914 100%)",
-              borderRadius: "4px 4px 0 0",
-              boxShadow: "0 4px 20px rgba(212,175,55,0.4)",
-              zIndex: 5,
-            }}
-          >
-            <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", width: 22, height: 16, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #FFF 0%, #D4AF37 60%, #8B6914 100%)" }} />
-          </div>
-
-          {/* Ribbon — Left Half */}
-          <div
-            style={{
-              position: "absolute",
-              left: "calc(2% + 16px)",
-              right: "calc(50% + 2px)",
-              top: "50%",
-              height: 34,
-              marginTop: -17,
-              background: "linear-gradient(180deg, #FBE094 0%, #D4AF37 35%, #AA771C 70%, #F5D77F 100%)",
-              borderTop: "1.5px solid rgba(255,255,255,0.6)",
-              borderBottom: "1.5px solid rgba(139,105,20,0.8)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4)",
-              transformOrigin: "left center",
-              transform: ribbonPieces.left ? "rotate(26deg) translateX(-15px) translateY(45px)" : "none",
-              opacity: ribbonPieces.left ? 0.35 : 1,
-              transition: "transform 0.65s cubic-bezier(0.68,-0.55,0.27,1.55), opacity 0.5s ease",
-              zIndex: 6,
-              overflow: "hidden",
-            }}
-          >
-            {/* Satin Sheen Line */}
-            <div style={{ position: "absolute", top: "35%", left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.55)", filter: "blur(1px)" }} />
-          </div>
-
-          {/* Ribbon — Right Half */}
-          <div
-            style={{
-              position: "absolute",
-              left: "calc(50% + 2px)",
-              right: "calc(2% + 16px)",
-              top: "50%",
-              height: 34,
-              marginTop: -17,
-              background: "linear-gradient(180deg, #FBE094 0%, #D4AF37 35%, #AA771C 70%, #F5D77F 100%)",
-              borderTop: "1.5px solid rgba(255,255,255,0.6)",
-              borderBottom: "1.5px solid rgba(139,105,20,0.8)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4)",
-              transformOrigin: "right center",
-              transform: ribbonPieces.right ? "rotate(-26deg) translateX(15px) translateY(45px)" : "none",
-              opacity: ribbonPieces.right ? 0.35 : 1,
-              transition: "transform 0.65s cubic-bezier(0.68,-0.55,0.27,1.55) 0.04s, opacity 0.5s ease",
-              zIndex: 6,
-              overflow: "hidden",
-            }}
-          >
-            {/* Satin Sheen Line */}
-            <div style={{ position: "absolute", top: "35%", left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.55)", filter: "blur(1px)" }} />
-          </div>
-
-          {/* Center Bow (disappears smoothly when cut) */}
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              transform: `translate(-50%, -50%) ${isDone ? "scale(0) translateY(30px)" : "scale(1)"}`,
-              transition: "transform 0.4s ease, opacity 0.4s ease",
-              opacity: isDone ? 0 : 1,
-              zIndex: 12,
-              pointerEvents: "none",
-            }}
-          >
-            <svg width="74" height="60" viewBox="0 0 74 60" fill="none">
-              <ellipse cx="20" cy="28" rx="18" ry="12" fill="url(#bowGradLeft)" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.3))" />
-              <ellipse cx="54" cy="28" rx="18" ry="12" fill="url(#bowGradRight)" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.3))" />
-              <circle cx="37" cy="28" r="9" fill="url(#knotGrad)" />
-              <circle cx="37" cy="28" r="5" fill="#FFF2B2" opacity="0.7" />
-              <path d="M32 34 L22 54 M42 34 L52 54" stroke="#D4AF37" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
-              <defs>
-                <linearGradient id="bowGradLeft" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#FBE094" />
-                  <stop offset="50%" stopColor="#D4AF37" />
-                  <stop offset="100%" stopColor="#8B6914" />
-                </linearGradient>
-                <linearGradient id="bowGradRight" x1="1" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#FBE094" />
-                  <stop offset="50%" stopColor="#D4AF37" />
-                  <stop offset="100%" stopColor="#8B6914" />
-                </linearGradient>
-                <linearGradient id="knotGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#FFF2B2" />
-                  <stop offset="100%" stopColor="#AA771C" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-
-          {/* Interactive Scissors Button */}
-          {!isDone && (
-            <button
-              onMouseEnter={() => { if (phase === "idle") setPhase("hover") }}
-              onMouseLeave={() => { if (phase === "hover") setPhase("idle") }}
-              onMouseMove={e => {
-                if (isDone || phase === "cutting") return
-                const btn = e.currentTarget
-                const stage = btn.closest("div[style*='height: 180px']")
-                if (!stage) return
-                const sr = stage.getBoundingClientRect()
-                const pct = ((e.clientX - sr.left) / sr.width - 0.5) * 80
-                setScissorPos(Math.max(-25, Math.min(25, pct)))
-              }}
-              onClick={handleCut}
-              aria-label="Cut the inauguration ribbon"
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: `calc(50% + ${scissorPos}%)`,
-                transform: "translate(-50%, -50%)",
-                zIndex: 25,
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 12,
-                borderRadius: "50%",
-                transition: phase === "cutting" ? "none" : "left 0.1s ease, transform 0.1s ease",
-              }}
-            >
-              {/* Scissors Circle Container */}
-              <div
-                style={{
-                  width: 68,
-                  height: 68,
-                  borderRadius: "50%",
-                  background: phase === "hover" ? "rgba(212,175,55,0.25)" : "rgba(255,255,255,0.08)",
-                  border: `2px solid ${phase === "hover" ? "#FBE094" : "rgba(212,175,55,0.6)"}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: phase === "hover" ? "0 0 32px rgba(212,175,55,0.6), inset 0 0 16px rgba(212,175,55,0.3)" : "0 4px 20px rgba(0,0,0,0.4)",
-                  animation: phase === "hover" ? "scissors-pulse 0.75s ease infinite" : "none",
-                  transition: "all 0.25s ease",
-                  backdropFilter: "blur(6px)",
-                }}
-              >
-                <Scissors
-                  size={32}
-                  color={phase === "hover" ? "#FFE899" : "#D4AF37"}
-                  style={{
-                    transform: phase === "cutting" ? "rotate(35deg) scale(1.35)" : "rotate(-25deg)",
-                    transition: "all 0.16s ease",
-                    filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))",
-                  }}
-                />
-              </div>
-
-              {/* Tooltip Badge */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: -42,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "linear-gradient(135deg, #D4AF37 0%, #AA771C 100%)",
-                  color: "#05131E",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  fontFamily: "var(--font-sans)",
-                  letterSpacing: "0.08em",
-                  padding: "6px 14px",
-                  borderRadius: 20,
-                  whiteSpace: "nowrap",
-                  boxShadow: "0 4px 18px rgba(0,0,0,0.4), 0 0 12px rgba(212,175,55,0.3)",
-                  animation: "badge-bob 1.5s ease-in-out infinite",
-                  textTransform: "uppercase",
-                }}
-              >
-                ✂ Click to Cut & Enter
-              </div>
-            </button>
-          )}
-
-          {/* Sparkles Emojis Celebration Layer */}
-          {phase === "celebrating" && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 35 }}>
-              {["✨", "🎊", "🎉", "🌟", "✨", "🥂", "⭐", "🎉"].map((e, i) => (
-                <span
-                  key={i}
-                  style={{
-                    position: "absolute",
-                    fontSize: 26 + (i % 3) * 10,
-                    top: `${15 + Math.sin(i * 0.9) * 35}%`,
-                    left: `${10 + i * 11}%`,
-                    animation: `sparkle-pop 0.7s ${i * 0.08}s ease both`,
-                  }}
-                >
-                  {e}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Post-Cut Action Callout */}
-        {isDone ? (
-          <div style={{ animation: "sparkle-pop 0.6s ease both", marginTop: 24 }}>
-            <button
-              onClick={handleEnterWebsite}
-              style={{
-                background: "linear-gradient(135deg, #FBE094 0%, #D4AF37 50%, #AA771C 100%)",
-                color: "#05131E",
-                border: "none",
-                borderRadius: 50,
-                padding: "16px 36px",
-                fontFamily: "var(--font-sans)",
-                fontSize: 15,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                cursor: "pointer",
-                boxShadow: "0 10px 30px rgba(212,175,55,0.45), 0 0 20px rgba(255,255,255,0.2)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 10,
-                transition: "all 0.25s ease",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(212,175,55,0.6)" }}
-              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 10px 30px rgba(212,175,55,0.45)" }}
-            >
-              <span>Enter Digital Studio</span>
-              <ChevronRight size={18} />
-            </button>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 12, letterSpacing: "0.04em" }}>
-              Press to explore fine plywood, veneer galleries & 3D visualizations
-            </p>
-          </div>
-        ) : (
-          <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 16 }}>
-            Tap or hover scissors and click to snip the ribbon
-          </p>
-        )}
-      </div>
-
-      {/* Bottom Footer Note */}
-      <div style={{ width: "100%", maxWidth: 1100, display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 16, flexWrap: "wrap", gap: 12 }}>
-        <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>
-          © 2024 KANHA PLY STUDIO · ALL RIGHTS RESERVED
-        </span>
-        <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em", fontWeight: 600 }}>
-          HYDERABAD · PREMIUM INTERIOR MATERIALS
-        </span>
-      </div>
-
-      {/* Keyframe Animations */}
-      <style>{`
-        @keyframes scissors-pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
-        }
-        @keyframes badge-bob {
-          0%, 100% { transform: translateX(-50%) translateY(0); }
-          50% { transform: translateX(-50%) translateY(-5px); }
-        }
-        @keyframes sparkle-pop {
-          0% { opacity: 0; transform: scale(0) translateY(20px); }
-          65% { opacity: 1; transform: scale(1.2) translateY(-4px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
-    </div>
-  )
-}
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSULTATION CTA
@@ -2199,7 +1645,7 @@ function Footer() {
           <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: "0.03em" }}>
             © 2024 KANHA Design Studio. All rights reserved. | Pune, Maharashtra.
           </div>
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
             {["Privacy Policy", "Terms of Use", "Sitemap"].map(l => (
               <a key={l} href="#" style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "rgba(255,255,255,0.2)", textDecoration: "none", transition: "color 0.2s", letterSpacing: "0.03em" }}
                 onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
@@ -2207,6 +1653,48 @@ function Footer() {
                 {l}
               </a>
             ))}
+            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 11 }}>•</span>
+            <a
+              href="https://shapages.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 11,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: 5,
+                transition: "opacity 0.2s ease",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.9")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.04em" }}>
+                Crafted by
+              </span>
+              <span
+                style={{
+                  fontWeight: 600,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--gold)",
+                  borderBottom: "1px solid rgba(200,155,60,0.35)",
+                  paddingBottom: 1,
+                  transition: "border-color 0.2s ease, color 0.2s ease",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderBottomColor = "var(--gold)"
+                  e.currentTarget.style.color = "#E5B85C"
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderBottomColor = "rgba(200,155,60,0.35)"
+                  e.currentTarget.style.color = "var(--gold)"
+                }}
+              >
+                Shapages
+              </span>
+            </a>
           </div>
         </div>
       </div>
@@ -2235,59 +1723,11 @@ function Footer() {
 // APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [showCeremony, setShowCeremony] = useState(true)
-
   return (
     <div style={{ minHeight: "100%", background: "var(--ivory)", overflowX: "hidden" }}>
-      {/* Full-Website Grand Opening Ribbon Cutting Ceremony Overlay */}
-      <GrandOpeningRibbonCutting isOpen={showCeremony} onClose={() => setShowCeremony(false)} />
-
-      {/* Floating Ceremonial Ribbon Trigger (allows reopening ceremony anytime) */}
-      {!showCeremony && (
-        <button
-          onClick={() => setShowCeremony(true)}
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            zIndex: 9000,
-            background: "linear-gradient(135deg, #073B5C 0%, #031D2D 100%)",
-            color: "#D4AF37",
-            border: "1.5px solid rgba(212,175,55,0.4)",
-            padding: "11px 18px",
-            borderRadius: 50,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.35), 0 0 16px rgba(212,175,55,0.25)",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontFamily: "var(--font-sans)",
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            cursor: "pointer",
-            backdropFilter: "blur(8px)",
-            transition: "all 0.25s ease",
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.transform = "scale(1.05) translateY(-2px)"
-            e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.45), 0 0 20px rgba(212,175,55,0.4)"
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.transform = "scale(1) translateY(0)"
-            e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35), 0 0 16px rgba(212,175,55,0.25)"
-          }}
-          aria-label="Open grand ribbon cutting ceremony"
-          title="Grand Opening Ribbon Ceremony"
-        >
-          <Scissors size={15} color="#D4AF37" />
-          <span>CUT RIBBON</span>
-        </button>
-      )}
-
       <Header />
       <main>
         <Hero />
-        {/* Ribbon cutting is now a full-screen site inauguration ceremony, NOT a page category */}
         <StatsBar />
         <About />
         <FeaturedProjects />
